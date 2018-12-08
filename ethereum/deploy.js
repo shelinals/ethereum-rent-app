@@ -16,7 +16,7 @@ const deploy = async () => {
 
     const result = await new web3.eth.Contract(JSON.parse(compiledFactory.interface))
         .deploy({ data: '0x' + compiledFactory.bytecode })
-        .send({ from: accounts[0], gas: '1000000', gasPrice: web3.utils.toWei('2', 'gwei') });
+        .send({ from: accounts[0], gas: '2000000', gasPrice: web3.utils.toWei('2', 'gwei') });
 
     console.log('Contract deployed to ', result.options.address);
     //keep the address for now!

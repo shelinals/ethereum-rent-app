@@ -1,7 +1,7 @@
 /* 
     runtime:
     delete entire 'build' folder
-    read 'campaign.sol' from the 'contracts' folder
+    read 'Rental.sol' from the 'contracts' folder
     compile both contracts with solidity compiler
     write output to the 'build' directory
 */
