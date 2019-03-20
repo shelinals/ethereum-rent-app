@@ -149,7 +149,7 @@ class DisputeShow extends Component {
                 {showFinalize && <Button as='div' labelPosition='left' floated='right' disabled={!allowFinalize}
                     onClick={this.onFinalize}>
                     <Label basic color='blue' pointing='right'>
-                        finalize in {timeToFinalize}
+                        {allowFinalize? 'finalize now' : 'finalize in ' + timeToFinalize}
                     </Label>
 
                     <Button primary>

@@ -5,6 +5,7 @@ import Rental from '../ethereum/rental';
 import web3 from '../ethereum/web3';
 import Layout from '../components/Layout';
 import { isMobileSSR, getWidth } from '../utils/device';
+import { convertToImage } from '../utils/ipfs';
 import { Link, Router } from '../routes';
 
 class RentalIndex extends Component {
@@ -50,33 +51,25 @@ class RentalIndex extends Component {
             })
         );
 
-        return { deployedRents, availableRents, names, deposit, rentalFee, imageHashes };
+        const images = await Promise.all(
+                imageHashes
+                .map((hash) => {
+                return hash == '0' ? 
+                    'https://react.semantic-ui.com/images/wireframe/white-image.png' 
+                    : convertToImage(hash);
+            })
+        );
+
+        return { deployedRents, availableRents, names, deposit, rentalFee, imageHashes, images };
     }
-
-    // renderRents() {
-        
-    //     const items = this.props.availableRents.map((address, i) => {
-    //         return {
-    //             header: this.props.names[i],
-    //             description: (
-    //                 <Link route={`/rents/${address}`}> 
-    //                     <a>View Item</a> 
-    //                 </Link>
-    //             ),
-    //             fluid: true 
-    //         }
-    //     });
-
-    //     return <Card.Group items={items}/>;
-    // }
 
     renderRents() {
         //transform image here
         const items = this.props.availableRents.map((address, i) => {
             const deposit = web3.utils.fromWei(this.props.deposit[i].toString(), 'ether');
             const feeHour = (web3.utils.fromWei(this.props.rentalFee[i].toString(), 'ether') * 60 * 60).toFixed(4);
-            return <Card key={i} link onClick={() => Router.pushRoute(`/rents/${address}`)}>
-                <Image src='https://react.semantic-ui.com/images/wireframe/white-image.png'/>
+            return <Card style={{padding: 20}} key={i} link onClick={() => Router.pushRoute(`/rents/${address}`)}>
+                <Image size='medium' verticalAlign='middle' centered src={this.props.images[i]}/>
                 <Card.Content>
                     <Card.Header>{this.props.names[i]}</Card.Header>
                     <Card.Description textAlign='center'>

@@ -20,21 +20,27 @@
   },
   "homepage": "https://github.com/shelinals/ethereum-rent-app#readme",
   "dependencies": {
+    "@zeit/next-css": "^1.0.1",
+    "buffer": "^5.2.1",
     "fs-extra": "^7.0.0",
     "ganache-cli": "^6.1.8",
     "ipfs-http-client": "^29.1.1",
     "mobile-detect": "^1.4.3",
     "mocha": "^5.2.0",
     "moment": "^2.24.0",
-    "next": "^4.1.4",
+    "next": "^8.0.3",
     "next-routes": "^1.4.2",
     "react": "^16.6.1",
     "react-dom": "^16.6.1",
+    "react-easy-crop": "^1.8.3",
     "react-qr-reader": "^2.1.2",
     "semantic-ui-css": "^2.4.1",
     "semantic-ui-react": "^0.85.0",
     "solc": "^0.4.25",
     "truffle-hdwallet-provider": "0.0.3",
     "web3": "^1.0.0-beta.35"
+  },
+  "devDependencies": {
+    "webpack": "^4.29.6"
   }
 }

@@ -12,7 +12,8 @@ import {
     Rating, 
     Label,
     Modal, 
-    GridColumn
+    GridColumn,
+    Image
 } from 'semantic-ui-react';
 import moment from 'moment';
 import Layout from '../../components/Layout';
@@ -21,6 +22,7 @@ import Rental from '../../ethereum/rental';
 import Profile from '../../ethereum/profile';
 import web3 from '../../ethereum/web3';
 import { Link, Router } from '../../routes';
+import { convertToImage } from '../../utils/ipfs';
 
 class RentalShow extends Component {
 
@@ -64,6 +66,8 @@ class RentalShow extends Component {
         const totalFee = await rent.methods.totalRentingFee().call();
         const allowOverdue = await rent.methods.allowOverdue().call();
         const openDispute = await rent.methods.openDispute().call();
+        const imageHash = await rent.methods.imageHashes().call();
+        const image = imageHash == '0' ? 0 : await convertToImage(imageHash);
         return { 
             address: props.query.address,
             inState: inState,
@@ -78,7 +82,8 @@ class RentalShow extends Component {
             profile: profile,
             totalFee: web3.utils.fromWei(totalFee, 'ether'),
             allowOverdue: allowOverdue,
-            openDispute: openDispute
+            openDispute: openDispute,
+            image: image
         };
     }
 
@@ -504,6 +509,32 @@ class RentalShow extends Component {
             />  
         );
     }
+
+    renderImage(){
+        const { image } = this.props;
+        console.log(image);
+
+        if(parseInt(image) == 0) {
+            return(
+                <Segment placeholder>
+                    <Header icon>
+                    <Icon name='images outline' />
+                        No photos for this item.
+                    </Header>
+                </Segment>
+            );
+        } else {
+            return(
+                <Segment padded placeholder>
+                    <Image 
+                        centered
+                        size='medium'
+                        src={image}
+                    />
+                </Segment>   
+            );
+        }
+    }
     
     render() {
         console.log('totalRentingFee ' + this.props.totalFee);
@@ -543,12 +574,7 @@ class RentalShow extends Component {
 
                 <Divider hidden/>
 
-                <Segment placeholder>
-                    <Header icon>
-                    <Icon name='images outline' />
-                        No photos for this item.
-                    </Header>
-                </Segment>
+                {this.renderImage()}
 
                 <Divider hidden/>
 

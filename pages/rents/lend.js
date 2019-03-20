@@ -1,10 +1,12 @@
 import React, { Component } from 'react';
 import { Form, Button, TextArea, Input, Message, 
         Modal, Header, Segment, Icon, Image, Divider } from 'semantic-ui-react';
+import Cropper from 'react-easy-crop';
 import Layout from '../../components/Layout';
 import factory from '../../ethereum/factory';
 import web3 from '../../ethereum/web3';
 import { getIpfsHash } from '../../utils/ipfs';
+import getCroppedImg from '../../utils/cropImage';
 
 class RentalNew extends Component {
     state = {
@@ -18,9 +20,19 @@ class RentalNew extends Component {
         loading: false,
         disabled: false,
         popup: false,
+        cropPopup: false,
+        cropLoading: false,
         imageUrl: '',
-        buffer: null
+        imageCropped: '',
+        croppedPixels: null,
+        buffer: null,
+        crop: { x: 0, y: 0 },
+        zoom: 1
     };
+
+    componentDidMount(){
+        this.setState({ enableCrop: true });
+    }
 
     onSubmit = async (event, publish) => {
         event.preventDefault();
@@ -31,6 +43,7 @@ class RentalNew extends Component {
 
         try{
             const ipfsHash = this.state.buffer ? await getIpfsHash(this.state.buffer) : 0;
+            console.log(ipfsHash);
             const accounts = await web3.eth.getAccounts();
             await factory.methods
                 .createRental(productName, 
@@ -39,7 +52,7 @@ class RentalNew extends Component {
                                 web3.utils.toWei(deposit, 'ether'), 
                                 parseFloat(maxDuration) * 60 * 60,
                                 publish,
-                                ipfsHash.toString())
+                                ipfsHash)
                 .send({
                     from: accounts[0]
                 });
@@ -56,43 +69,59 @@ class RentalNew extends Component {
     onFileSelected = () => {
 
         const reader = new FileReader();
-        const reader2 = new FileReader();
 
         const file = this.fileInput.files[0];
+        console.log('file ' + file);
+
+        if(file instanceof Blob ){
+            reader.onloadend = () => {
+                this.setState({
+                    imageUrl: reader.result,
+                    cropLoading: false
+                }); 
+            }
+    
+            reader.readAsDataURL(file);
+    
+            this.setState({ cropPopup: true, cropLoading: true });
+        }
+    }
+
+    onFileCropped = async () => {
+        this.setState({ cropLoading: true, cropPopup: false });
+        const imageCropped = await getCroppedImg(this.state.imageUrl, this.state.croppedPixels);
+        console.log('typeof ' + typeof imageCropped.imgBlob);
+
+        const reader = new FileReader();
 
         reader.onloadend = () => {
-            this.setState({
-                imageUrl: reader.result
-            }); 
-        }
-
-        reader.readAsDataURL(file);
-
-        reader2.onloadend = () => {
-            this.setState({ buffer: Buffer(reader.result)});
+            this.setState({ buffer: Buffer.from(reader.result), 
+                            imageCropped : imageCropped.imgUrl,
+                            cropLoading: false });
             console.log(this.state.buffer);
         }
 
-        reader2.readAsArrayBuffer(file);
+        reader.readAsArrayBuffer(imageCropped.imgBlob);
     }
 
     onFileRemoved = () => {
         this.setState({
+            imageCropped: '',
             imageUrl: '',
             buffer: null
         });
     }
 
     renderImage() {
-        const {imageUrl} = this.state;
+        const {imageCropped} = this.state;
 
-        if(imageUrl){
+        if(imageCropped){
             return(
-                <Segment padded placeholder>
+                <Segment padded placeholder loading={this.state.cropLoading}>
                     <Image 
                         centered
                         size='medium'
-                        src={imageUrl}
+                        src={imageCropped}
                         label={{ as: 'a', icon: {name: 'remove', fitted: true} , 
                                 circular: true, floating: true, size: 'large',
                                 onClick: () => this.onFileRemoved() }}
@@ -101,7 +130,7 @@ class RentalNew extends Component {
             );
         } else {
             return(
-                <Segment placeholder>
+                <Segment placeholder loading={this.state.cropLoading}>
                     <Header icon>
                     <Icon name='images outline' />
                         No photos are uploaded for this item.
@@ -115,6 +144,51 @@ class RentalNew extends Component {
                 </Segment> 
             );
         }
+    }
+
+    onCropChange = crop => {
+        this.setState({ crop });
+    }
+
+    onCropComplete = (croppedArea, croppedAreaPixels) => {
+        this.setState({ croppedPixels: croppedAreaPixels });
+    }
+
+    onZoomChange = zoom => {
+        this.setState({ zoom });
+    }
+
+    renderCrop(){
+        return(
+            <Modal
+                size="small"
+                open={this.state.cropPopup}
+                onClose={() => this.setState({ cropPopup: false })}
+            >
+                <Modal.Header>Crop Image</Modal.Header>
+                <Modal.Content>
+                    <Segment placeholder loading={this.state.cropLoading}>
+                        <Cropper
+                            image={this.state.imageUrl}
+                            crop={this.state.crop}
+                            zoom={this.state.zoom}
+                            aspect={1}
+                            onCropChange={this.onCropChange}
+                            onCropComplete={this.onCropComplete}
+                            onZoomChange={this.onZoomChange}
+                        />
+                    </Segment>
+                </Modal.Content>
+                <Modal.Actions>
+                    <Button negative onClick={() => this.setState({ cropPopup: false })}>
+                        Cancel
+                    </Button>
+                    <Button positive onClick={this.onFileCropped}>
+                        Submit
+                    </Button>
+                </Modal.Actions>
+            </Modal>
+        );
     }
 
     render() {
@@ -177,6 +251,8 @@ class RentalNew extends Component {
 
                 <Divider hidden />
 
+                {this.renderCrop()}
+
                 <Modal
                     size="small"
                     open={this.state.popup}
@@ -208,5 +284,15 @@ class RentalNew extends Component {
         );
     }
 }
+
+// const styles = {
+//     containerStyle: {
+//         position: 'relative',
+//         top: 0,
+//         left: 0,
+//         right: 0,
+//         bottom: 0
+//     }
+// };
 
 export default RentalNew;
