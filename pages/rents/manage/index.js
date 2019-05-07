@@ -243,7 +243,7 @@ class RentalManage extends Component {
 
     onViewQR = (event, address) => {
         event.preventDefault();
-        const url = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=http://localhost:3000/rents/${address}`;
+        const url = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://ethereum-rent-app.herokuapp.com/rents/${address}`;
         window.open(url, '_blank'); 
     }
 

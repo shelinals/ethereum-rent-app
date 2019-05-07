@@ -17,6 +17,7 @@ import {
     Checkbox
 } from 'semantic-ui-react';
 import moment from 'moment';
+import { ethers } from 'ethers';
 import Layout from '../../components/Layout';
 import factory from '../../ethereum/factory';
 import Rental from '../../ethereum/rental';
@@ -76,14 +77,14 @@ class RentalShow extends Component {
             inState: inState,
             productName: summary[0],
             description: await getString('Qm'+summary[1]),
-            rentalFee: web3.utils.fromWei(summary[2], 'ether'),
-            deposit: web3.utils.fromWei(summary[3], 'ether'),
+            rentalFee: ethers.utils.formatUnits(summary[2], "ether"),
+            deposit: ethers.utils.formatUnits(summary[3], "ether"),
             maxDuration: summary[4],
             owner: summary[5],
             renter: summary[6],
             time: time,
             profileOwner: profileOwner,
-            totalFee: web3.utils.fromWei(totalFee, 'ether'),
+            totalFee: ethers.utils.formatUnits(totalFee, "ether"),
             allowOverdue: allowOverdue,
             openDisputeO: openDisputeO,
             openDispute: openDisputeR || openDisputeO,
@@ -232,7 +233,6 @@ class RentalShow extends Component {
                 const profileRenter= await factory.methods.getProfile(this.props.renter).call();
                 const role = web3.utils.asciiToHex('Renter',8);
                 const historyIndex = await Rental(this.props.address).methods.historyIndex().call();
-                console.log('parameter ',rating,rateDescription,role,this.props.address,profileRenter,historyIndex);
                 await profileOwner.methods.inputRating(rating, rateDescription, role, this.props.address, 
                     profileRenter, historyIndex).send({
                     from: accounts[0]
@@ -582,7 +582,6 @@ class RentalShow extends Component {
     }
     
     render() {
-        console.log('totalRentingFee ' + this.props.totalFee);
         const showSummary = this.state.isRenter && this.props.inState === "AWAITPAYMENT";
         const createDispute = this.state.isRenter && this.props.inState === "RENTED" && !this.props.openDispute;
         const showTimeDetails = this.props.inState === "RENTED" || this.props.inState === "AWAITPAYMENT";

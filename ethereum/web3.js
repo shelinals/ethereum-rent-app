@@ -1,4 +1,4 @@
-const Web3 = require('web3');
+import Web3 from 'web3';
 
 //assume user has metamask
 // const web3 = new Web3(window.web3.currentProvider); // cannot do with next because cannot see "window" from server

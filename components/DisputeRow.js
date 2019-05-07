@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { Table, Button } from 'semantic-ui-react';
-import web3 from '../ethereum/web3';
+import { ethers } from 'ethers';
 import { Router } from '../routes';
 
 class DisputeRowDesktop extends Component {
@@ -8,7 +8,7 @@ class DisputeRowDesktop extends Component {
     render() {
         const { Row, Cell } = Table;
         const { address, dispute, addressIndex } = this.props;
-        const incentives = web3.utils.fromWei(dispute.incentives, 'ether') + ' ETH';
+        const incentives = ethers.utils.formatUnits(dispute.incentives, "ether") + ' ETH';
         const status = dispute.complete? 'Voting Closed' : 'Voting Open';
         const button = dispute.complete? 'Details' : 'Vote';
         return (
@@ -33,9 +33,9 @@ class DisputeRowDesktop extends Component {
 class DisputeRowMobile extends Component {
 
     render() {
-        const { Row, Cell, Header, HeaderCell } = Table;
+        const { Row, Cell } = Table;
         const { address, dispute, addressIndex } = this.props;
-        const incentives = web3.utils.fromWei(dispute.incentives, 'ether') + ' ETH';
+        const incentives = ethers.utils.formatUnits(dispute.incentives, "ether") + ' ETH';
         const status = dispute.complete? 'Voting Closed' : 'Voting Open';
         const button = dispute.complete? 'Details' : 'Vote';
         return (

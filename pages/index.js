@@ -1,10 +1,10 @@
 import React, { Component } from 'react';
 import MobileDetect from 'mobile-detect';
 import { Card, Image, Statistic, Divider, Grid, Responsive, Rating } from 'semantic-ui-react';
+import { ethers } from 'ethers';
 import factory from '../ethereum/factory';
 import Rental from '../ethereum/rental';
 import Profile from '../ethereum/profile';
-import web3 from '../ethereum/web3';
 import Layout from '../components/Layout';
 import { getWidthFactory } from '../utils/device';
 import { convertToImage } from '../utils/ipfs';
@@ -47,6 +47,14 @@ class RentalIndex extends Component {
             rentalFee.push(item[2]);
         });
 
+        // const deposit2 = await Promise.all(
+        //         availableRents
+        //         .map((address) => {
+        //         return Rental(address).methods.deposit().call();;
+        //     })
+        // );
+
+        
         const ownersP = await Promise.all(
                 owners
                 .map((owner) => {
@@ -98,8 +106,8 @@ class RentalIndex extends Component {
 
     renderRentsDesktop() {
         const items = this.props.availableRents.map((address, i) => {
-            const deposit = web3.utils.fromWei(this.props.deposit[i].toString(), 'ether');
-            const feeHour = (web3.utils.fromWei(this.props.rentalFee[i].toString(), 'ether') * 60 * 60).toFixed(4);
+            const deposit = ethers.utils.formatUnits(this.props.deposit[i], "ether");
+            const feeHour = (ethers.utils.formatUnits(this.props.rentalFee[i], "ether") * 60 * 60).toFixed(4);
             const avgRate = this.props.ratingCounts[i]? (Math.round(this.props.itemSumRatings[i] / this.props.ratingCounts[i])) : 0;
             return <Card key={i} link onClick={() => Router.pushRoute(`/rents/${address}`)} color='red'>
                 <Image centered src={this.props.images[i]}/>
@@ -138,8 +146,8 @@ class RentalIndex extends Component {
 
     renderRentsMobile() {
         const items = this.props.availableRents.map((address, i) => {
-            const deposit = web3.utils.fromWei(this.props.deposit[i].toString(), 'ether');
-            const feeHour = (web3.utils.fromWei(this.props.rentalFee[i].toString(), 'ether') * 60 * 60).toFixed(4);
+            const deposit = ethers.utils.formatUnits(this.props.deposit[i], "ether");
+            const feeHour = (ethers.utils.formatUnits(this.props.rentalFee[i], "ether") * 60 * 60).toFixed(4);
             const avgRate = this.props.ratingCounts[i]? (Math.round(this.props.itemSumRatings[i] / this.props.ratingCounts[i])) : 0;
             return <Card key={i} link onClick={() => Router.pushRoute(`/rents/${address}`)} color='red'>
                 <Image centered src={this.props.images[i]}/>
@@ -178,7 +186,6 @@ class RentalIndex extends Component {
 
     render() {
         const itemsLength = this.props.availableRents? this.props.availableRents.length : 0;
-        console.log('deployed rents' + this.props.deployedRents);
 
         return(
             <Layout>

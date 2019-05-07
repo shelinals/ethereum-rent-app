@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import { Form, Button, Message, Input, TextArea, Segment, Icon, Header, Image, Divider, Select } from 'semantic-ui-react';
 import Rental from '../../../ethereum/rental';
 import web3 from '../../../ethereum/web3';
+import { ethers } from 'ethers';
 import { Link, Router } from '../../../routes';
 import Layout from '../../../components/Layout';
 import { getIpfsHash } from '../../../utils/ipfs';
@@ -23,7 +24,7 @@ class DisputeNew extends Component {
         const rent = Rental(address);
         const inState = await rent.methods.getState().call();
         let deposit = await rent.methods.deposit().call();
-        deposit = web3.utils.fromWei(deposit, 'ether');
+        deposit = ethers.utils.formatUnits(deposit, "ether");
         const byOwner = inState === 'AWAITPAYMENT';
         return { address, byOwner, deposit };
     }
@@ -75,7 +76,6 @@ class DisputeNew extends Component {
 
         reader2.onloadend = () => {
             this.setState({ buffer: Buffer.from(reader2.result)});
-            console.log(this.state.buffer);
         }
 
         reader2.readAsArrayBuffer(file);
@@ -131,8 +131,6 @@ class DisputeNew extends Component {
             { key: '4', text: '0.15 ETH', value: '0.15' },
             { key: '5', text: '0.2 ETH', value: '0.2' }
         ];
-
-        console.log('incentives ' + this.state.incentives);
 
         return(
             <Layout>

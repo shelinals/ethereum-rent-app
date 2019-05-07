@@ -72,7 +72,6 @@ class RentalNew extends Component {
         const reader = new FileReader();
 
         const file = this.fileInput.files[0];
-        console.log('file ' + file);
 
         if(file instanceof Blob ){
             reader.onloadend = () => {
@@ -91,7 +90,6 @@ class RentalNew extends Component {
     onFileCropped = async () => {
         this.setState({ cropLoading: true, cropPopup: false });
         const imageCropped = await getCroppedImg(this.state.imageUrl, this.state.croppedPixels);
-        console.log('typeof ' + typeof imageCropped.imgBlob);
 
         const reader = new FileReader();
 
@@ -99,7 +97,6 @@ class RentalNew extends Component {
             this.setState({ buffer: Buffer.from(reader.result), 
                             imageCropped : imageCropped.imgUrl,
                             cropLoading: false });
-            console.log(this.state.buffer);
         }
 
         reader.readAsArrayBuffer(imageCropped.imgBlob);

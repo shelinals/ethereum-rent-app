@@ -3,6 +3,7 @@ import { Form, Message, Card, Grid, Button } from 'semantic-ui-react';
 import Layout from '../../../components/Layout';
 import Rental from '../../../ethereum/rental';
 import web3 from '../../../ethereum/web3';
+import { ethers } from 'ethers';
 import { Link, Router } from '../../../routes';
 
 class RentalShow extends Component {
@@ -30,8 +31,8 @@ class RentalShow extends Component {
             inState: inState,
             productName: summary[0],
             description: summary[1],
-            rentalFee: web3.utils.fromWei(summary[2], 'ether'),
-            deposit: web3.utils.fromWei(summary[3], 'ether'),
+            rentalFee: ethers.utils.formatUnits(summary[2], "ether"),
+            deposit: ethers.utils.formatUnits(summary[3], "ether"),
             maxDuration: summary[4],
             owner: summary[5]
          };

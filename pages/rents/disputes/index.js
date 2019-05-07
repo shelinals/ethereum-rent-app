@@ -6,6 +6,7 @@ import factory from '../../../ethereum/factory';
 import Layout from '../../../components/Layout';
 import Rental from '../../../ethereum/rental';
 import web3 from '../../../ethereum/web3';
+import { ethers } from 'ethers';
 import { convertToImage, getString } from '../../../utils/ipfs';
 import { Link, Router } from '../../../routes';
 
@@ -56,10 +57,10 @@ class DisputeShow extends Component {
         const image = openDispute.imageHash == '0' ? 0 : await convertToImage('Qm'+openDispute.imageHash);
         const productName = await rent.methods.productName().call();
         const depositWei = await rent.methods.deposit().call();
-        const deposit = web3.utils.fromWei(depositWei, 'ether');
+        const deposit = ethers.utils.formatUnits(depositWei, "ether");
         const rentFeeWei= byOwner ? await rent.methods.totalRentingFee().call()  
                         : await rent.methods.finalizeDisputeFee(index).call();
-        const rentFee = web3.utils.fromWei(rentFeeWei, 'ether');
+        const rentFee = ethers.utils.formatUnits(rentFeeWei, "ether");
         const profileOwner = await factory.methods.getProfile(owner).call();
         const profileRenter = await factory.methods.getProfile(renter).call();
         return { address, index, openDispute, byOwner, productName, image, 
@@ -75,11 +76,8 @@ class DisputeShow extends Component {
 
         try {
             const accounts = await web3.eth.getAccounts();
-            console.log('incentives0 ' + this.props.openDispute.incentives);
             let incentives = await rent.methods.payoutIncentive(this.props.openDispute.incentives).call();
-            console.log('incentives ' + incentives);
-            incentives = web3.utils.fromWei(incentives.toString(), 'ether');
-            console.log('incentives2 ' + incentives);
+            incentives = ethers.utils.formatUnits(incentives, "ether");
             await rent.methods.approveDispute(this.props.index).send({
                 from: accounts[0]
             });
@@ -103,7 +101,7 @@ class DisputeShow extends Component {
         try {
             const accounts = await web3.eth.getAccounts();
             let incentives = await rent.methods.payoutIncentive(this.props.openDispute.incentives).call();
-            incentives = web3.utils.fromWei(incentives.toString(), 'ether');
+            incentives = ethers.utils.formatUnits(incentives, "ether");
             await rent.methods.rejectDispute(this.props.index).send({
                 from: accounts[0]
             });
