@@ -1,10 +1,12 @@
 import React, { Component } from 'react';
 import { Divider, Segment, Header, Icon, Grid, Message, 
-        Statistic, Button, Label, Dimmer, Loader } from 'semantic-ui-react';
+        Statistic, Button, Label, Dimmer, Loader, Modal, Image } from 'semantic-ui-react';
 import moment from 'moment';
+import factory from '../../../ethereum/factory';
 import Layout from '../../../components/Layout';
 import Rental from '../../../ethereum/rental';
 import web3 from '../../../ethereum/web3';
+import { convertToImage, getString } from '../../../utils/ipfs';
 import { Link, Router } from '../../../routes';
 
 class DisputeShow extends Component {
@@ -17,6 +19,8 @@ class DisputeShow extends Component {
         loading: true,
         isRenter: false,
         isOwner: false,
+        incentives: 0,
+        finalizePopUp: false,
         currentApprove: this.props.openDispute.approvalCount,
         currentReject: this.props.openDispute.rejectionCount
     };
@@ -24,7 +28,6 @@ class DisputeShow extends Component {
     async componentDidMount() {
         const { address } = this.props;
         const accounts = await web3.eth.getAccounts();
-        //console.log('address ' + address + 'open dispute' + this.props.openDispute.approvals);
         if(await Rental(address).methods.owner().call() === accounts[0]){
             this.setState({ isOwner: true });
         }else if(await Rental(address).methods.renter().call() === accounts[0]){
@@ -37,13 +40,30 @@ class DisputeShow extends Component {
     }
 
     static async getInitialProps(props) {
-        const { address } = props.query;
+        const { address, addressIdx } = props.query;
         const rent = Rental(address);
         const disputeCounts = await rent.methods.disputeCounts().call();
-        const index = disputeCounts - 1;
+        let index;
+        if(addressIdx){
+            index = addressIdx;
+        } else {
+            index = disputeCounts - 1;
+        }
         const openDispute = await rent.methods.disputes(index).call();
+        const owner = await rent.methods.owner().call();
+        const renter = await rent.methods.renter().call();
+        const byOwner = openDispute.disputer == owner;
+        const image = openDispute.imageHash == '0' ? 0 : await convertToImage('Qm'+openDispute.imageHash);
         const productName = await rent.methods.productName().call();
-        return { address, index, openDispute, productName };
+        const depositWei = await rent.methods.deposit().call();
+        const deposit = web3.utils.fromWei(depositWei, 'ether');
+        const rentFeeWei= byOwner ? await rent.methods.totalRentingFee().call()  
+                        : await rent.methods.finalizeDisputeFee(index).call();
+        const rentFee = web3.utils.fromWei(rentFeeWei, 'ether');
+        const profileOwner = await factory.methods.getProfile(owner).call();
+        const profileRenter = await factory.methods.getProfile(renter).call();
+        return { address, index, openDispute, byOwner, productName, image, 
+                    deposit, rentFee, owner, renter, profileOwner, profileRenter };
     }
 
     onApprove = async (event) => {
@@ -55,11 +75,16 @@ class DisputeShow extends Component {
 
         try {
             const accounts = await web3.eth.getAccounts();
+            console.log('incentives0 ' + this.props.openDispute.incentives);
+            let incentives = await rent.methods.payoutIncentive(this.props.openDispute.incentives).call();
+            console.log('incentives ' + incentives);
+            incentives = web3.utils.fromWei(incentives.toString(), 'ether');
+            console.log('incentives2 ' + incentives);
             await rent.methods.approveDispute(this.props.index).send({
                 from: accounts[0]
             });
             
-            this.setState({ hasVoted: true, currentApprove: parseInt(this.state.currentApprove) + 1 });
+            this.setState({ hasVoted: true, currentApprove: parseInt(this.state.currentApprove) + 1, incentives: incentives });
 
         } catch (err) {
             this.setState({ errorMessage: err.message }); 
@@ -77,11 +102,13 @@ class DisputeShow extends Component {
 
         try {
             const accounts = await web3.eth.getAccounts();
+            let incentives = await rent.methods.payoutIncentive(this.props.openDispute.incentives).call();
+            incentives = web3.utils.fromWei(incentives.toString(), 'ether');
             await rent.methods.rejectDispute(this.props.index).send({
                 from: accounts[0]
             });
             
-            this.setState({ hasVoted: true, currentReject: parseInt(this.state.currentReject) + 1 });
+            this.setState({ hasVoted: true, currentReject: parseInt(this.state.currentReject) + 1, incentives: incentives });
 
         } catch (err) {
             this.setState({ errorMessage: err.message }); 
@@ -96,13 +123,20 @@ class DisputeShow extends Component {
 
         const rent = Rental(this.props.address);
 
-        this.setState({ loading: true, errorFinalize: '', errorMessage: '' });
+        this.setState({ finalizePopUp: false, loading: true, errorFinalize: '', errorMessage: '' });
 
         try{
             const accounts = await web3.eth.getAccounts();
-            await rent.methods.finalizeRequest(this.props.index).send({
-                from: accounts[0]
-            });
+
+            if(this.props.byOwner){
+                await rent.methods.finalizeRequestOwner(this.props.index).send({
+                    from: accounts[0]
+                });
+            } else {
+                await rent.methods.finalizeRequestRenter(this.props.index).send({
+                    from: accounts[0]
+                });
+            }
 
             this.setState({ completed: true, 
                 successFinalize: 'The transactions has been finalized' });
@@ -113,6 +147,97 @@ class DisputeShow extends Component {
         this.setState({ loading: false });
     }
 
+    renderSummary() {
+        //we assume that total payment <= deposit
+        const {
+            approvalCount, 
+            rejectionCount,
+            penaltyFee,
+        } = this.props.openDispute;
+
+        const approvedDispute = approvalCount >= rejectionCount;
+        const approvedRenter = approvedDispute && !this.props.byOwner;
+        const approvedOwner = approvedDispute && this.props.byOwner;
+        const approvalMsg = approvedDispute ? 
+            'Approval counts are sufficient to approve the dispute. Here is the final summary of the transaction: ' 
+            : 'Approval counts are not sufficient to approve the dispute. Due to the number of rejection counts, this dispute is deemed to be invalid.' ;
+        let payable = parseFloat(this.props.rentFee)+(penaltyFee/100*parseFloat(this.props.deposit));
+        payable = payable > parseFloat(this.props.deposit) ? parseFloat(this.props.deposit) : payable;
+        return(
+            <Modal
+                size="small"
+                open={this.state.finalizePopUp}
+                onClose={() => this.setState({ finalizePopUp: false })}
+            >
+                <Modal.Header>Finalize Summary</Modal.Header>
+                <Modal.Content>
+                    <p>
+                        {approvalMsg}
+                    </p>
+                    <Message compact color='yellow'>
+                        {approvedRenter ? 
+                            (<div>
+                            <div>Payable of ~ {parseFloat(this.props.rentFee).toFixed(4)} ETH to the owner</div>
+                            <div>This amount will be deducted from the renter's deposit of {parseFloat(this.props.deposit)} ETH </div>
+                            <div>The remainder will be credited back to the renter with any additional remaining voting incentives</div>
+                            </div>) : <span>Deposit of {parseFloat(this.props.deposit)} ETH will be credited to the owner</span>}
+
+                        {approvedOwner ? 
+                            (<div>
+                            <div>Payable of ~ {payable.toFixed(4)} ETH to the owner</div>
+                            <div>It includes the rental fee of {parseFloat(this.props.rentFee).toFixed(4)} 
+                                plus the penalty fee of {penaltyFee} % to the deposit or the deposit itself whichever is higher</div>
+                            <div>This amount will be deducted from the renter's deposit of {parseFloat(this.props.deposit)} ETH</div>
+                            <div>The payable fee will be credited to the owner with any additional remaining voting incentives</div>
+                            <div>The remainder of the deposit will be credited back to the renter</div>
+                            </div>) : (<div>
+                            <div>Payable of ~ {parseFloat(this.props.rentFee).toFixed(4)} ETH to the owner</div>
+                            <div>It includes only the rental fee</div>
+                            <div>This amount will be deducted from the renter's deposit of {parseFloat(this.props.deposit)} ETH</div>
+                            <div>The payable fee will be credited to the owner with any additional remaining voting incentives</div>
+                            <div>The remainder of the deposit will be credited back to the renter</div>
+                            </div>)}
+                    </Message> 
+                </Modal.Content>
+                <Modal.Actions>
+                    <Button negative onClick={() => this.setState({ finalizePopUp: false })}>
+                        <Icon name='cancel' />
+                        Cancel
+                    </Button>
+                    <Button positive onClick={(e) => this.onFinalize(e)}>
+                        <Icon name='upload' />
+                        Submit 
+                    </Button>
+                </Modal.Actions>
+            </Modal>
+        );
+    }
+
+    renderImage() {
+        const { image } = this.props;
+
+        if(parseInt(image) == 0) {
+            return(
+                <Segment placeholder>
+                    <Header icon>
+                    <Icon name='images outline' />
+                        No photos for this dispute.
+                    </Header>
+                </Segment>
+            );
+        } else {
+            return(
+                <Segment padded placeholder>
+                    <Image 
+                        centered
+                        size='medium'
+                        src={image}
+                    />
+                </Segment>   
+            );
+        }
+    }
+
     render() {
         //finalize only after one week
         //after one week check if rejection and approval is the same
@@ -120,15 +245,14 @@ class DisputeShow extends Component {
         const { complete, 
                 title, 
                 description, 
-                disputer, 
-                imageHash, 
+                disputer,
                 approvalCount, 
-                rejectionCount, 
+                rejectionCount,
+                penaltyFee, 
                 startTime 
         } = this.props.openDispute;
 
         const hasVoted = this.state.hasVoted;
-        //const hasVoted = false;
         const completed = this.state.completed? this.state.completed : complete;
         const showFinalize = ((this.state.isOwner || this.state.isRenter) && !completed);
         const status = completed ? 'Closed' : 'Open';
@@ -137,24 +261,27 @@ class DisputeShow extends Component {
         const allowFinalize = moment.unix(startTime).add(1, 'weeks').isSameOrBefore(moment(), 'second');
         const productName = this.props.productName;
         const productId = this.props.address;
+        const byOwner = this.props.byOwner;
         return(
             <Layout>
-                <Dimmer active={this.state.loading} inverted>
+                <Dimmer active={this.state.loading} inverted style={{ position: 'fixed' }}>
                     <Loader size='large'>Loading</Loader>
                 </Dimmer>
 
-                <h3>Dispute Details</h3>
+                <h3 style={{ marginTop: 5 }}>Dispute Details</h3>
                 <Message color={completed ? 'red' : 'green'} compact style={{marginTop: 0}}>{'Status: ' + status}</Message>
 
+                {this.renderSummary()}
+                
                 {showFinalize && <Button as='div' labelPosition='left' floated='right' disabled={!allowFinalize}
-                    onClick={this.onFinalize}>
+                    onClick={() => this.setState({ finalizePopUp: true })}>
                     <Label basic color='blue' pointing='right'>
-                        {allowFinalize? 'finalize now' : 'finalize in ' + timeToFinalize}
+                        {allowFinalize? 'finalize now' : 'in ' + timeToFinalize}
                     </Label>
 
                     <Button primary>
                         <Icon name='flag' />
-                        Finalize Dispute
+                        Finalize
                     </Button>
                 </Button>}
 
@@ -169,7 +296,13 @@ class DisputeShow extends Component {
                         {title}
                         <Header.Subheader>
                             <div style={{wordBreak: 'break-word'}}>
-                                {'Opened: ' + timeOpened + ' by ' + disputer}
+                                {'Opened: ' + timeOpened + ' by '}
+                                {byOwner ? <Link route={`/profile/${this.props.profileOwner}`}> 
+                                        <a>{disputer}</a> 
+                                    </Link> 
+                                :   <Link route={`/profile/${this.props.profileRenter}`}> 
+                                        <a>{disputer}</a> 
+                                    </Link>}
                             </div>
                         </Header.Subheader>
                     </Header.Content>
@@ -201,7 +334,7 @@ class DisputeShow extends Component {
                         </Grid.Column>
                     </Grid.Row>
                     <Grid.Row centered>
-                        {!hasVoted && !completed &&
+                        {!hasVoted && !completed && !this.state.isOwner && !this.state.isRenter &&
                             <React.Fragment> 
                                 <Grid.Column textAlign='right'>
                                     <Button positive onClick={this.onApprove}>Approve</Button>
@@ -211,12 +344,31 @@ class DisputeShow extends Component {
                                 </Grid.Column>
                             </React.Fragment>}
 
-                        {hasVoted && !completed &&
+                        {this.state.isOwner && !completed && 
                             <Grid.Column textAlign='center'>
-                                <Message compact success
-                                    header='Thank you for voting!'
-                                    content='Your vote has been recorded'
+                                <Message compact warning
+                                    header={byOwner ? 'You are the disputer' : 'You are the disputant'}
+                                    content='You cannot take part in this vote'
                                 />
+                            </Grid.Column>}
+
+                        {this.state.isRenter && !completed &&
+                            <Grid.Column textAlign='center'>
+                                <Message compact warning
+                                    header={byOwner ? 'You are the disputant' : 'You are the disputer'}
+                                    content='You cannot take part in this vote'
+                                />
+                            </Grid.Column>}
+
+                        {hasVoted && !completed && !this.state.isOwner && !this.state.isRenter &&
+                            <Grid.Column textAlign='center'>
+                                <Message compact success>
+                                    <Message.Header>Thank you for voting!</Message.Header>
+                                    <Message.Content>
+                                        <div>Your vote has been recorded.</div>
+                                        { this.state.incentives && <div>Incentives of {this.state.incentives} ETH will be credited to you.</div> }
+                                    </Message.Content>
+                                </Message>
                             </Grid.Column>}
 
                         {completed && 
@@ -252,14 +404,46 @@ class DisputeShow extends Component {
 
                 <Divider hidden />
 
+                <h2>Disputer</h2>
+
+                <div style={{fontSize:'17px', textAlign: 'justify', wordBreak: 'break-word' }}>
+                    {byOwner ? <Link route={`/profile/${this.props.profileOwner}`}> 
+                                    <a>{this.props.owner}</a> 
+                                </Link> 
+                            :   <Link route={`/profile/${this.props.profileRenter}`}> 
+                                    <a>{this.props.renter}</a> 
+                                </Link>}
+                </div>
+                
+                <Divider hidden />
+
+                <h2>Disputant</h2>
+
+                <div style={{fontSize:'17px', textAlign: 'justify', wordBreak: 'break-word' }}>
+                    {byOwner ? <Link route={`/profile/${this.props.profileRenter}`}> 
+                                    <a>{this.props.renter}</a> 
+                                </Link> 
+                            :   <Link route={`/profile/${this.props.profileOwner}`}> 
+                                    <a>{this.props.owner}</a> 
+                                </Link>}
+                </div>
+
+                <Divider hidden />
+
+                {byOwner && 
+                <React.Fragment>
+                    <h2>Penalty Fee</h2>
+
+                    <div style={{fontSize:'17px', textAlign: 'justify' }}>
+                            A proposed penalty fee of <span style={{ color: 'red' }}>{penaltyFee} % of the initial deposit </span> is to be imposed on the renter.
+                            This value is approximately <span style={{ color: 'red' }}>{(penaltyFee*parseFloat(this.props.deposit)/100).toFixed(3)} ETH</span>.
+                    </div>
+                    <Divider hidden />
+                </React.Fragment>}
+
                 <h2>Attachment</h2>
 
-                <Segment placeholder>
-                    <Header icon>
-                    <Icon name='images outline' />
-                        No photos for this item.
-                    </Header>
-                </Segment>
+                {this.renderImage()}
 
                 <Divider hidden />
             </Layout>

@@ -4,7 +4,7 @@ const routes = require('next-routes')();
 
 routes
      .add('/disputes', '/disputeList')
-     .add('/disputes/:address', '/rents/disputes/index')
+     .add('/disputes/:address/:addressIdx', '/rents/disputes/index')
      .add('/profile/:address', '/profile')
      .add('/rents/lend', '/rents/lend')
      .add('/rents/manage', '/rents/manage/index')

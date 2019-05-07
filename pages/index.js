@@ -1,16 +1,19 @@
 import React, { Component } from 'react';
-import { Card, Image, Statistic, Divider, Grid } from 'semantic-ui-react';
+import MobileDetect from 'mobile-detect';
+import { Card, Image, Statistic, Divider, Grid, Responsive, Rating } from 'semantic-ui-react';
 import factory from '../ethereum/factory';
 import Rental from '../ethereum/rental';
+import Profile from '../ethereum/profile';
 import web3 from '../ethereum/web3';
 import Layout from '../components/Layout';
-import { isMobileSSR, getWidth } from '../utils/device';
+import { getWidthFactory } from '../utils/device';
 import { convertToImage } from '../utils/ipfs';
 import { Link, Router } from '../routes';
 
 class RentalIndex extends Component {
 
-    static async getInitialProps() { //uses static to make initial data fetching easier, no need for rendering
+    static async getInitialProps({ req }) { 
+        
         const deployedRents = await factory.methods.getDeployedRentals().call();
         const status = await Promise.all(
                 deployedRents
@@ -23,24 +26,45 @@ class RentalIndex extends Component {
             status[i] == "PUBLISHED"
         );
 
-        const names = await Promise.all(
+        availableRents.reverse();
+
+        let names = [];
+        let owners = [];
+        let deposit = [];
+        let rentalFee = [];
+
+        const summary = await Promise.all(
                 availableRents
                 .map((address) => {
-                return Rental(address).methods.productName().call();
+                    return Rental(address).methods.getSummary().call();
+                })  
+        );
+
+        summary.forEach(function(item){
+            names.push(item[0]);
+            owners.push(item[5]);
+            deposit.push(item[3]);
+            rentalFee.push(item[2]);
+        });
+
+        const ownersP = await Promise.all(
+                owners
+                .map((owner) => {
+                return factory.methods.getProfile(owner).call();;
             })
         );
 
-        const deposit = await Promise.all(
-                availableRents
-                .map((address) => {
-                return Rental(address).methods.deposit().call();
+        const itemSumRatings = await Promise.all(
+                ownersP
+                .map((ownerP) => {
+                return Profile(ownerP).methods.getSumRating().call();;
             })
         );
 
-        const rentalFee = await Promise.all(
-                availableRents
-                .map((address) => {
-                return Rental(address).methods.rentalFee().call();
+        const ratingCounts = await Promise.all(
+                ownersP
+                .map((ownerP) => {
+                return Profile(ownerP).methods.ratingCounts().call();;
             })
         );
 
@@ -56,20 +80,29 @@ class RentalIndex extends Component {
                 .map((hash) => {
                 return hash == '0' ? 
                     'https://react.semantic-ui.com/images/wireframe/white-image.png' 
-                    : convertToImage(hash);
+                    : convertToImage('Qm' + hash);
             })
         );
 
-        return { deployedRents, availableRents, names, deposit, rentalFee, imageHashes, images };
+        let isMobileFromSSR = false;
+
+        if(req){
+            const device = req.headers["user-agent"];
+            const md = new MobileDetect(device);
+            isMobileFromSSR = !!md.mobile();
+        }
+
+        return { deployedRents, availableRents, names, deposit, rentalFee, imageHashes, 
+                images, isMobileFromSSR, itemSumRatings, ratingCounts };
     }
 
-    renderRents() {
-        //transform image here
+    renderRentsDesktop() {
         const items = this.props.availableRents.map((address, i) => {
             const deposit = web3.utils.fromWei(this.props.deposit[i].toString(), 'ether');
             const feeHour = (web3.utils.fromWei(this.props.rentalFee[i].toString(), 'ether') * 60 * 60).toFixed(4);
-            return <Card style={{padding: 20}} key={i} link onClick={() => Router.pushRoute(`/rents/${address}`)}>
-                <Image size='medium' verticalAlign='middle' centered src={this.props.images[i]}/>
+            const avgRate = this.props.ratingCounts[i]? (Math.round(this.props.itemSumRatings[i] / this.props.ratingCounts[i])) : 0;
+            return <Card key={i} link onClick={() => Router.pushRoute(`/rents/${address}`)} color='red'>
+                <Image centered src={this.props.images[i]}/>
                 <Card.Content>
                     <Card.Header>{this.props.names[i]}</Card.Header>
                     <Card.Description textAlign='center'>
@@ -78,26 +111,69 @@ class RentalIndex extends Component {
                             <Grid.Column textAlign='right'>
                                 <Statistic size='mini' color='red'>
                                     <Statistic.Label>Deposit</Statistic.Label>
-                                    <Statistic.Value>{deposit}</Statistic.Value>
+                                    <Statistic.Value><span style={{fontSize: 17}}>{deposit} ETH</span></Statistic.Value>
                                  </Statistic>
                             </Grid.Column>
                             <Grid.Column textAlign='left'>
                                 <Statistic size='mini' color='red'>
                                     <Statistic.Label>Fee/Hour</Statistic.Label>
-                                    <Statistic.Value>{feeHour}</Statistic.Value>
+                                    <Statistic.Value><span style={{fontSize: 17}}>{feeHour} ETH</span></Statistic.Value>
                                 </Statistic>
                             </Grid.Column>
                         </Grid.Row>
                     </Grid>
                     </Card.Description>
                 </Card.Content>
-
+                <Card.Content extra>
+                    Owner's rating: <Rating maxRating={5} rating={avgRate} icon='star' disabled/>
+                </Card.Content>
             </Card>
         });
 
-        return <Card.Group itemsPerRow={4} doubling stackable> 
-                    {items}
-                </Card.Group>;
+        return  <Responsive fireOnMount as={Card.Group} getWidth={getWidthFactory(this.props.isMobileFromSSR)} 
+                            minWidth={Responsive.onlyTablet.minWidth} itemsPerRow={4} doubling stackable>
+                            {items}
+                </Responsive>;
+    }
+
+    renderRentsMobile() {
+        const items = this.props.availableRents.map((address, i) => {
+            const deposit = web3.utils.fromWei(this.props.deposit[i].toString(), 'ether');
+            const feeHour = (web3.utils.fromWei(this.props.rentalFee[i].toString(), 'ether') * 60 * 60).toFixed(4);
+            const avgRate = this.props.ratingCounts[i]? (Math.round(this.props.itemSumRatings[i] / this.props.ratingCounts[i])) : 0;
+            return <Card key={i} link onClick={() => Router.pushRoute(`/rents/${address}`)} color='red'>
+                <Image centered src={this.props.images[i]}/>
+                <Card.Content>
+                    <Card.Header>{this.props.names[i]}</Card.Header>
+                    <Card.Description textAlign='center'>
+                    <Grid columns='equal'>
+                        <Grid.Row>
+                            <Grid.Column textAlign='center'>
+                                <Statistic size='mini' color='red'>
+                                    <Statistic.Label>Deposit</Statistic.Label>
+                                    <Statistic.Value>{deposit} ETH</Statistic.Value>
+                                 </Statistic>
+                            </Grid.Column>
+                            <Grid.Column textAlign='center'>
+                                <Statistic size='mini' color='red'>
+                                    <Statistic.Label>Fee/Hour</Statistic.Label>
+                                    <Statistic.Value>{feeHour} ETH</Statistic.Value>
+                                </Statistic>
+                            </Grid.Column>
+                        </Grid.Row>
+                    </Grid>
+                    </Card.Description>
+                </Card.Content>
+                <Card.Content extra>
+                    Owner's rating: <Rating maxRating={5} rating={avgRate} icon='star' size='large' disabled/>
+                </Card.Content>
+            </Card>
+        });
+
+        return <Responsive fireOnMount as={Card.Group} getWidth={getWidthFactory(this.props.isMobileFromSSR)} 
+                            maxWidth={Responsive.onlyMobile.maxWidth} stackable doubling>
+                            {items}
+                </Responsive>;
     }
 
     render() {
@@ -109,7 +185,8 @@ class RentalIndex extends Component {
                 <h3>Available Rent Items</h3>
                 <Divider hidden/>
 
-                {this.renderRents()}
+                {this.renderRentsDesktop()}
+                {this.renderRentsMobile()}
 
                 <Divider hidden/>
                 <div style={{ marginTop: 20 }}>Found {itemsLength} Item(s).</div>

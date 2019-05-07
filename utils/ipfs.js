@@ -1,8 +1,8 @@
  const IPFS = require('ipfs-http-client');
  const ipfs = new IPFS({ host: 'ipfs.infura.io', port: 5001, protocol: 'https' });
- const getIpfsHash = (buffer) => {
+ const getIpfsHash = (data) => {
     return new Promise((resolve, reject) => {
-        ipfs.add(buffer, (error, result) => {
+        ipfs.add(data, (error, result) => {
             if(error) {
                 return reject(error);
             }
@@ -22,4 +22,15 @@
     });
  }
 
- export {ipfs, getIpfsHash, convertToImage};
+ const getString = (hash) => {
+    return new Promise((resolve, reject) => {
+        ipfs.cat(hash, (error, result) => {
+            if(error) {
+                return reject(error);
+            }
+            resolve(result.toString());
+        })
+    });
+ }
+
+ export {ipfs, getIpfsHash, convertToImage, getString};

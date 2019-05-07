@@ -46,9 +46,7 @@ class ScanCode extends Component {
                             onScan={this.handleScan.bind(this)}
                             style={{ maxWidth: '500px', margin: 'auto' }}
                             />
-                            <p>{this.state.result}</p>
-                        </div>) :
-                        <p>{this.state.result}</p>
+                        </div>) : null
                     }
                 </div>
             </Layout>

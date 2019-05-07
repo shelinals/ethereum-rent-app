@@ -4,6 +4,7 @@ import { Container, Responsive, Sidebar } from 'semantic-ui-react';
 import Head from 'next/head';
 import HeaderDesktop from './HeaderDesktop';
 import HeaderMobile from './HeaderMobile';
+import { getWidthFactory } from '../utils/device';
 
 class DesktopContainer extends Component {
     state = {}
@@ -52,8 +53,13 @@ class Layout extends Component {
     state = {};
 
     static async getInitialProps({ req }) {
-        const md = new MobileDetect(req.headers["user-agent"]);
-        const isMobileFromSSR = !!md.mobile();
+        let isMobileFromSSR = false;
+
+        if(req){
+            const device = req.headers["user-agent"];
+            const md = new MobileDetect(device);
+            isMobileFromSSR = !!md.mobile();
+        }
 
         return { isMobileFromSSR };
     }
@@ -71,7 +77,6 @@ class Layout extends Component {
                     <meta name="viewport" content="width=device-width, initial-scale=1" />
                 </Head>
                 <div ref={this.handleContextRef}>
-
                     <DesktopContainer contextRef={this.state.contextRef} getWidth={getWidthFactory(this.props.isMobileFromSSR)}>
                         {this.props.children} 
                     </DesktopContainer>
@@ -79,21 +84,10 @@ class Layout extends Component {
                     <MobileContainer contextRef={this.state.contextRef} getWidth={getWidthFactory(this.props.isMobileFromSSR)}>
                         {this.props.children}
                     </MobileContainer>
-
-                </div>          
+                </div>     
             </React.Fragment>
         );
     }
 }
-
-const getWidthFactory = isMobileFromSSR => () => {
-    const isSSR = typeof window === "undefined";
-    console.log('isSSR: '+ isSSR + ' , is MobileFromSSR' + isMobileFromSSR);
-    const ssrValue = isMobileFromSSR
-      ? Responsive.onlyMobile.maxWidth
-      : Responsive.onlyTablet.minWidth;
-  
-    return isSSR ? ssrValue : window.innerWidth;
-};
 
 export default Layout;

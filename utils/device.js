@@ -3,12 +3,13 @@ const { Responsive } = require('semantic-ui-react');
 
 const isMobileSSR = (req) => {
     const md = new MobileDetect(req.headers["user-agent"]);
+    console.log(md);
     return !!md.mobile();
 }
 
-const getWidth = (isMobileFromSSR) => () => {
+const getWidthFactory = (isMobileFromSSR) => () => {
     const isSSR = typeof window === "undefined";
-    console.log('isSSR: '+ isSSR + ' , is MobileFromSSR' + isMobileFromSSR);
+    console.log('isSSR: '+ isSSR + ' , is MobileFromSSR ' + isMobileFromSSR);
     const ssrValue = isMobileFromSSR
       ? Responsive.onlyMobile.maxWidth
       : Responsive.onlyTablet.minWidth;
@@ -16,4 +17,4 @@ const getWidth = (isMobileFromSSR) => () => {
     return isSSR ? ssrValue : window.innerWidth;
 };
 
- export { isMobileSSR, getWidth };
+ export { isMobileSSR, getWidthFactory };

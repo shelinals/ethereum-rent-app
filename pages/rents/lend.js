@@ -42,17 +42,18 @@ class RentalNew extends Component {
         this.setState({ loading: true, popup: false, errorMessage: '' });
 
         try{
-            const ipfsHash = this.state.buffer ? await getIpfsHash(this.state.buffer) : 0;
-            console.log(ipfsHash);
+            const imageHash = this.state.buffer ? (await getIpfsHash(this.state.buffer)).substring(2) : '0';
+            const descBuf = Buffer.from(description, 'utf8');
+            const descHash = await getIpfsHash(descBuf);
             const accounts = await web3.eth.getAccounts();
             await factory.methods
                 .createRental(productName, 
-                                description, 
+                                descHash.substring(2), 
                                 Math.round(web3.utils.toWei(rentalFee, 'ether') / 60 / 60), 
                                 web3.utils.toWei(deposit, 'ether'), 
                                 parseFloat(maxDuration) * 60 * 60,
                                 publish,
-                                ipfsHash)
+                                imageHash)
                 .send({
                     from: accounts[0]
                 });
