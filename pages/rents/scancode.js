@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import Layout from '../../components/Layout';
+import { Router } from '../../routes';
 if (typeof window != 'undefined') {
     var QrReader  = require('react-qr-reader');
 }
@@ -9,8 +10,7 @@ class ScanCode extends Component {
         super(props);
         this.state = {
           enable: false,
-          delay: 300,
-          result: "No result"
+          delay: 300
         };
     }
 
@@ -20,10 +20,8 @@ class ScanCode extends Component {
 
     handleScan(data) {
         if (data) {
-          window.location.href = data;
-          this.setState({
-            result: data
-          });
+          const address = data.replace("https://ethereum-rent-app.herokuapp.com/rents/","");
+          Router.pushRoute(`/rents/${address}`);
         }
     }
 
