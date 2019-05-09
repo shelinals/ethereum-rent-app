@@ -46,6 +46,7 @@ class RentalNew extends Component {
             const descBuf = Buffer.from(description, 'utf8');
             const descHash = await getIpfsHash(descBuf);
             const accounts = await web3.eth.getAccounts();
+            console.log("LOADINGGG " + this.state.loading)
             await factory.methods
                 .createRental(productName, 
                                 descHash.substring(2), 
@@ -57,13 +58,13 @@ class RentalNew extends Component {
                 .send({
                     from: accounts[0]
                 });
-
+                console.log("LOADINGGG " + this.state.loading)
             this.setState({ disabled: true, 
                 successMessage: "You have submitted the item. You can manage your item(s) in the 'Manage Items' tab" });
         } catch (err) {
             this.setState({ errorMessage: err.message });
         }
-
+        console.log("LOADINGGG " + this.state.loading)
         this.setState({ loading: false });
     }
 
@@ -282,15 +283,5 @@ class RentalNew extends Component {
         );
     }
 }
-
-// const styles = {
-//     containerStyle: {
-//         position: 'relative',
-//         top: 0,
-//         left: 0,
-//         right: 0,
-//         bottom: 0
-//     }
-// };
 
 export default RentalNew;

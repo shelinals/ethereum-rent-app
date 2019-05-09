@@ -154,8 +154,6 @@ class DisputeShow extends Component {
         } = this.props.openDispute;
 
         const approvedDispute = approvalCount >= rejectionCount;
-        const approvedRenter = approvedDispute && !this.props.byOwner;
-        const approvedOwner = approvedDispute && this.props.byOwner;
         const approvalMsg = approvedDispute ? 
             'Approval counts are sufficient to approve the dispute. Here is the final summary of the transaction: ' 
             : 'Approval counts are not sufficient to approve the dispute. Due to the number of rejection counts, this dispute is deemed to be invalid.' ;
@@ -172,15 +170,16 @@ class DisputeShow extends Component {
                     <p>
                         {approvalMsg}
                     </p>
-                    <Message compact color='yellow'>
-                        {approvedRenter ? 
+                    {!this.props.byOwner && <Message compact color='yellow'>
+                        {approvedDispute ? 
                             (<div>
                             <div>Payable of ~ {parseFloat(this.props.rentFee).toFixed(4)} ETH to the owner</div>
                             <div>This amount will be deducted from the renter's deposit of {parseFloat(this.props.deposit)} ETH </div>
                             <div>The remainder will be credited back to the renter with any additional remaining voting incentives</div>
                             </div>) : <span>Deposit of {parseFloat(this.props.deposit)} ETH will be credited to the owner</span>}
-
-                        {approvedOwner ? 
+                    </Message>}
+                    {this.props.byOwner && <Message compact color='yellow'>
+                        {approvedDispute ? 
                             (<div>
                             <div>Payable of ~ {payable.toFixed(4)} ETH to the owner</div>
                             <div>It includes the rental fee of {parseFloat(this.props.rentFee).toFixed(4)} 
@@ -195,7 +194,7 @@ class DisputeShow extends Component {
                             <div>The payable fee will be credited to the owner with any additional remaining voting incentives</div>
                             <div>The remainder of the deposit will be credited back to the renter</div>
                             </div>)}
-                    </Message> 
+                    </Message>} 
                 </Modal.Content>
                 <Modal.Actions>
                     <Button negative onClick={() => this.setState({ finalizePopUp: false })}>

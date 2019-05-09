@@ -310,7 +310,7 @@ class RentalManage extends Component {
                             maxRating={5} 
                             size='massive'/>
                         <Divider />
-                        <Form.TextArea 
+                        <Form.TextArea
                             label='Comments' 
                             placeholder='Leave a review..'
                             onChange={event => this.setState({ rateDescription: event.target.value })} 
